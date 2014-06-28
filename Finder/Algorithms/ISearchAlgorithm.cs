@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Finder.Algorithms
@@ -10,9 +11,8 @@ namespace Finder.Algorithms
         int Depth { get; set; }
         string FolderPath { get; set; }
         //string[] Search(string keyword, Dictionary<string, object> config);
-        Task BuildAsync();
-        Task<string[]> SearchAsync(string keyword, Dictionary<string, object> config);
+        Task BuildAsync(CancellationToken ct);
+        string[] Search(string keyword, Dictionary<string, object> config, CancellationToken token);
         int IndexedCount { get; }
-        bool SupportBuild { get; }
     }
 }

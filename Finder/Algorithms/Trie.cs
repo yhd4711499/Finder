@@ -1,4 +1,4 @@
-﻿using Finder.Util;
+﻿using System.Threading;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,29 +41,15 @@ namespace Finder.Algorithms
 
         private Node _root;
 
-        public List<string> FileList { get; private set; }
 
-        public override Task BuildAsync()
+        protected override void Build(CancellationToken token)
         {
-            return Task.Factory.StartNew(Build);
-        }
-
-        public void Build()
-        {
-            var folderPath = FolderPath;
             _root = new Node();
 
-            GC.Collect();
-
             var index = 0;
-            var patternDic = Patterns.Split('|').ToLookup(_ => _);
-
-            FileList = new List<string>();
-
-            FileSystemUtil.Walkthrough(FileList, patternDic, folderPath, Depth);
-
             foreach (var filePath in FileList)
             {
+                token.ThrowIfCancellationRequested();
                 Build(index++, ReadContent(filePath));
             }
         }
@@ -104,11 +90,12 @@ namespace Finder.Algorithms
             node.FileIndex[fileIndex] = true;
         }
 
-        private string[] Search(string keyword, bool matchWholeWord)
+        private string[] Search(string keyword, bool matchWholeWord, CancellationToken token)
         {
             var node = _root;
             foreach (var t in keyword)
             {
+                token.ThrowIfCancellationRequested();
                 var c = t;
                 if (Char.IsUpper(c))
                     c = Char.ToLower(c);
@@ -130,27 +117,10 @@ namespace Finder.Algorithms
 
         public const string ConfigMatchWholeWord = "ConfigMatchWholeWord";
 
-        public string[] Search(string keyword, Dictionary<string, object> config)
+        public override string[] Search(string keyword, Dictionary<string, object> config, CancellationToken token)
         {
             var matchWholeWord = (bool)config[ConfigMatchWholeWord];
-            return Search(keyword, matchWholeWord);
-        }
-
-
-        public override int IndexedCount
-        {
-            get { return FileList.Count; }
-        }
-
-
-        public override bool SupportBuild
-        {
-            get { return true; }
-        }
-
-        public override Task<string[]> SearchAsync(string keyword, Dictionary<string, object> config)
-        {
-            return Task<string[]>.Factory.StartNew(() => Search(keyword, config));
+            return Search(keyword, matchWholeWord, token);
         }
     }
 }

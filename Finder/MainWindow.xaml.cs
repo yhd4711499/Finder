@@ -1,4 +1,9 @@
-﻿using Finder.Algorithms;
+﻿using System.ComponentModel;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using Finder.Algorithms;
+using Finder.Annotations;
 using Finder.Util;
 using System;
 using System.Collections.Generic;
@@ -11,13 +16,52 @@ namespace Finder
     /// <summary>
     /// MainWindow.xaml 的交互逻辑
     /// </summary>
-    public partial class MainWindow : Window
+    public sealed partial class MainWindow : Window, INotifyPropertyChanged
     {
         private ISearchAlgorithm _searchAlgorithm;
         private long _delay;
+        private CancellationTokenSource _cuurentTaskToken = new CancellationTokenSource();
+
+
+        /// <summary>
+        /// IsBusy属性的名称
+        /// </summary>
+        public const string IsBusyPropertyName = "IsBusy";
+        private bool _isBusy;
+        /// <summary>
+        /// 作者很懒，什么描述也没有
+        /// </summary>
+        public bool IsBusy
+        {
+            get
+            {
+                return _isBusy;
+            }
+            set
+            {
+                if (_isBusy != value)
+                {
+                    _isBusy = value;
+                    RaisePropertyChanged(IsBusyPropertyName);
+                }
+            }
+        }
+        
+         
+
         public MainWindow()
         {
+            Keyboard.AddKeyDownHandler(this, OnKeydown);
             InitializeComponent();
+            DataContext = this;
+        }
+
+        private void OnKeydown(object sender, KeyEventArgs keyEventArgs)
+        {
+            if (keyEventArgs.Key == Key.Escape)
+            {
+                _cuurentTaskToken.Cancel();
+            }
         }
 
         private void Folder_OnTextChanged(object sender, TextChangedEventArgs e)
@@ -40,12 +84,44 @@ namespace Finder
                 return;
 
             UpdateStatus("正在搜索...");
-            _searchAlgorithm.SearchAsync(Keyword.Text, new Dictionary<string, object> { { Trie.ConfigMatchWholeWord, false } })
-                .ContinueWith(t => this.BeginInvoke(() =>
-                {
-                    Results.ItemsSource = t.Result;
-                    UpdateStatus("搜索完成，找到{0}项。", t.Result.Length);
-                }));
+
+            var keyword = Keyword.Text;
+            Func<string[]> searchAction = () => _searchAlgorithm.Search(keyword, new Dictionary<string, object> { { Trie.ConfigMatchWholeWord, false } }, _cuurentTaskToken.Token);
+            Action<string[]> update = (result) =>
+            {
+                Results.ItemsSource = result;
+                UpdateStatus("搜索完成，找到{0}项。", result.Length);
+            };
+
+            if (_delay == -1)
+            {
+                var result = searchAction();
+                update(result);
+            }
+            else
+            {
+                _cuurentTaskToken.Cancel();
+                _cuurentTaskToken = new CancellationTokenSource();
+                IsBusy = true;
+                Task.Factory.StartNew(searchAction, _cuurentTaskToken.Token)
+                    .ContinueWith(t =>
+                    {
+                        if (t.IsCanceled)
+                        {
+                            if (_cuurentTaskToken.IsCancellationRequested)
+                            {
+                                this.BeginInvoke(() => UpdateStatus("已取消搜索。"));
+                                IsBusy = false;
+                            }
+                        }
+                        else
+                        {
+                            this.BeginInvoke(() => update(t.Result));
+                            IsBusy = false;
+                        }
+                        
+                    });
+            }
 
         }
 
@@ -84,21 +160,30 @@ namespace Finder
             _searchAlgorithm.Patterns = Extensions.Text;
             _searchAlgorithm.FolderPath = Folder.Text;
 
-            if (!_searchAlgorithm.SupportBuild)
-            {
-                if (callback != null)
-                callback();
-                return;
-            }
-
             UpdateStatus("正在索引，请稍候...");
-
-            _searchAlgorithm.BuildAsync()
-                .ContinueWith(t => this.BeginInvoke(() => UpdateStatus("就绪，共索引{0}项", _searchAlgorithm.IndexedCount)))
+            IsBusy = true;
+            _cuurentTaskToken.Cancel();
+            _cuurentTaskToken = new CancellationTokenSource();
+            _searchAlgorithm.BuildAsync(_cuurentTaskToken.Token)
                 .ContinueWith(t =>
                 {
+                    if (t.IsCanceled)
+                    {
+                        this.BeginInvoke(() => UpdateStatus("已取消索引。"));
+                    }
+                    else
+                    {
+                        this.BeginInvoke(() => UpdateStatus("就绪，共索引{0}项", _searchAlgorithm.IndexedCount));
+                    }
+                    IsBusy = false;
+
+                })
+                .ContinueWith(t =>
+                {
+                    if(t.IsCanceled)
+                        return;
                     if (callback != null)
-                        callback();
+                        this.BeginInvoke(callback);
                 });
         }
 
@@ -114,6 +199,7 @@ namespace Finder
 
         private void SearchMethod_SelectionChanged_1(object sender, SelectionChangedEventArgs e)
         {
+            _cuurentTaskToken.Cancel();
             var shortName = (string)((FrameworkElement)SearchMethod.SelectedItem).Tag;
             var fullName = "Finder.Algorithms." + shortName;
             var s = Activator.CreateInstance(Type.GetType(fullName)) as ISearchAlgorithm;
@@ -141,6 +227,30 @@ namespace Finder
 
             DeferUtil.StopAll();
             Build(() => this.BeginInvoke(Search));
+        }
+
+        private void ButtonRefresh_OnClick(object sender, RoutedEventArgs e)
+        {
+            Build(Search);
+        }
+
+        private void ButtonStop_OnClick(object sender, RoutedEventArgs e)
+        {
+            _cuurentTaskToken.Cancel();
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        [NotifyPropertyChangedInvocator]
+        private void RaisePropertyChanged(string propertyName)
+        {
+            PropertyChangedEventHandler handler = PropertyChanged;
+            if (handler != null) handler(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private void ResultItem_OnDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            CommonCommands.ShellExecuteCommand.Execute(((FrameworkElement)sender).DataContext.ToString());
         }
     }
 }

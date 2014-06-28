@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -10,12 +11,21 @@ namespace Finder.Util
         {
             if (depth == 0)
                 return;
-            result.AddRange(Directory.GetFiles(folder).Where(filePath => patternDic.Contains(Path.GetExtension(filePath).ToLower())));
-
-            foreach (var directory in Directory.GetDirectories(folder))
+            try
             {
-                Walkthrough(result, patternDic, directory, depth - 1);
+                result.AddRange(Directory.GetFiles(folder).Where(filePath => patternDic.Contains(Path.GetExtension(filePath).ToLower())));
+                foreach (var directory in Directory.GetDirectories(folder))
+                {
+                    Walkthrough(result, patternDic, directory, depth - 1);
+                }
             }
+            catch (Exception)
+            {
+                
+            }
+            
+
+            
         } 
     }
 }

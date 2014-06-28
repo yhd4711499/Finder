@@ -1,4 +1,5 @@
-﻿using Finder.Util;
+﻿using System.Threading;
+using Finder.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,8 +18,9 @@ namespace Finder.Algorithms
         /// </summary>
         /// <param name="source"></param>
         /// <param name="pattern"></param>
+        /// <param name="token"></param>
         /// <returns>An array of matched index</returns>
-        public int[] Search(string source, string pattern)
+        public int[] Search(string source, string pattern, CancellationToken token)
         {
             var matchIndexes = new List<int>();
 
@@ -31,8 +33,9 @@ namespace Finder.Algorithms
             // start searching.
             for (var i = pattern.Length - 1; i < source.Length; i += delta)
             {
+                token.ThrowIfCancellationRequested();
                 // find next match and update delta.
-                if (FindNext(source, pattern, i, deltaMap, out delta))
+                if (FindNext(source, pattern, i, deltaMap, token, out delta))
                 {
                     // add to result list if found.
                     matchIndexes.Add(i - (pattern.Length - 1));
@@ -41,7 +44,7 @@ namespace Finder.Algorithms
             return matchIndexes.ToArray();
         }
 
-        private static bool Match(string source, int[] deltaMap, string pattern)
+        private static bool Match(string source, int[] deltaMap, string pattern, CancellationToken token)
         {
             // step increasment.
             int delta;
@@ -49,8 +52,9 @@ namespace Finder.Algorithms
             // start searching.
             for (var i = pattern.Length - 1; i < source.Length; i += delta)
             {
+                token.ThrowIfCancellationRequested();
                 // find next match and update delta.
-                if (FindNext(source, pattern, i, deltaMap, out delta))
+                if (FindNext(source, pattern, i, deltaMap, token, out delta))
                 {
                     return true;
                 }
@@ -67,7 +71,7 @@ namespace Finder.Algorithms
         /// <param name="deltaMap"></param>
         /// <param name="delta"></param>
         /// <returns>true if found one, otherwise false.</returns>
-        private static bool FindNext(string source, string pattern, int start, int[] deltaMap, out int delta)
+        private static bool FindNext(string source, string pattern, int start, int[] deltaMap, CancellationToken token, out int delta)
         {
             int i = pattern.Length - 1,
                 index = 0;
@@ -75,6 +79,7 @@ namespace Finder.Algorithms
             // start comparing from the last char in pattern.
             while (source[start - index] == pattern[i - index])
             {
+                token.ThrowIfCancellationRequested();
                 if (index != pattern.Length - 1)
                 {
                     index++;
@@ -122,37 +127,18 @@ namespace Finder.Algorithms
             return deltaMap;
         }
 
-        public string[] Search(string keyword)
+        protected override void Build(CancellationToken token)
         {
-            var patternDic = Patterns.Split('|').ToLookup(_ => _);
-            var folderPath = FolderPath;
+            //throw new NotImplementedException();
+        }
 
-            var fileList = new List<string>();
-            FileSystemUtil.Walkthrough(fileList, patternDic, folderPath, Depth);
+        public override string[] Search(string keyword, Dictionary<string, object> config, CancellationToken token)
+        {
+            var fileList = FileList;
 
             var deltaMap = CreateDeltaMap(keyword);
 
-            return fileList.Where(filePath => Match(ReadContent(filePath), deltaMap, keyword)).ToArray();
-        }
-
-        public override Task BuildAsync()
-        {
-            throw new NotImplementedException();
-        }
-
-        public override Task<string[]> SearchAsync(string keyword, Dictionary<string, object> config)
-        {
-            return Task<string[]>.Factory.StartNew(() => Search(keyword));
-        }
-
-        public override int IndexedCount
-        {
-            get { return 0; }
-        }
-
-        public override bool SupportBuild
-        {
-            get { return false; }
+            return fileList.Where(filePath => Match(ReadContent(filePath), deltaMap, keyword, token)).ToArray();
         }
     }
 }

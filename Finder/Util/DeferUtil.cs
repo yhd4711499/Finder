@@ -25,7 +25,7 @@ namespace Finder.Util
                 existedTimer.Stop();
                 existedTimer = null;
             }
-            if (msInterval == 0)
+            if (msInterval <= 0)
             {
                 a();
             }
