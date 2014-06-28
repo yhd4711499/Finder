@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
+using System.Windows.Controls;
+using Finder.Util;
 
 namespace Finder
 {
@@ -26,6 +25,26 @@ namespace Finder
                                ShellUtil.ShellExecute(IntPtr.Zero, "open", cmd, null, null,
                                    (int)ShellUtil.ShowWindowCommands.SW_NORMAL);
                            }));
+            }
+        }
+
+        private static RelayCommand<TextBox> _selectFolderCommand;
+
+        /// <summary>
+        /// Gets the MyCommand.
+        /// </summary>
+        public static RelayCommand<TextBox> SelectFolderCommand
+        {
+            get
+            {
+                return _selectFolderCommand
+                    ?? (_selectFolderCommand = new RelayCommand<TextBox>(
+                                          p =>
+                                          {
+                                              var d = new VistaFolderBrowserDialog();
+                                              if (d.ShowDialog() != true) return;
+                                              p.Text = d.SelectedPath;
+                                          }));
             }
         }
 

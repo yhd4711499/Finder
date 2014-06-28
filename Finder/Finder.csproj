@@ -50,14 +50,27 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Algorithms\BoyerMooreSearch.cs" />
+    <Compile Include="Algorithms\ISearchAlgorithm.cs" />
+    <Compile Include="Algorithms\SearchBase.cs" />
     <Compile Include="Behaviors.cs" />
     <Compile Include="CommonCommands.cs" />
+    <Compile Include="Interop\COMGuids.cs" />
+    <Compile Include="Interop\ErrorHelper.cs" />
+    <Compile Include="Interop\ShellComInterfaces.cs" />
+    <Compile Include="Interop\ShellWrapperDefinitions.cs" />
     <Compile Include="RelayCommand.cs" />
     <Compile Include="RelayCommandGeneric.cs" />
     <Compile Include="ShellUtil.cs" />
     <Compile Include="SupplementaryInteraction.cs" />
-    <Compile Include="Trie.cs" />
+    <Compile Include="Algorithms\Trie.cs" />
     <Compile Include="Triggers.cs" />
+    <Compile Include="Util\DeferUtil.cs" />
+    <Compile Include="Util\DispatcherUtil.cs" />
+    <Compile Include="Util\FileSystemUtil.cs" />
+    <Compile Include="Interop\NativeMethods.cs" />
+    <Compile Include="Interop\SafeHandles.cs" />
+    <Compile Include="Util\VistaFolderBrowserDialog.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -95,6 +108,7 @@
     </None>
     <AppDesigner Include="Properties\" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
