@@ -1,9 +1,6 @@
 ﻿using System.Threading;
-using Finder.Util;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace Finder.Algorithms
 {

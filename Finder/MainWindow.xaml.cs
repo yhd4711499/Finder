@@ -66,7 +66,7 @@ namespace Finder
 
         private void Folder_OnTextChanged(object sender, TextChangedEventArgs e)
         {
-            Build();
+            BuildAndSearch();
         }
 
         private void Keyword_OnTextChanged(object sender, TextChangedEventArgs e)
@@ -127,7 +127,7 @@ namespace Finder
 
         private void Recusive_OnCheckedChanged(object sender, RoutedEventArgs e)
         {
-            Build();
+            BuildAndSearch();
         }
 
         private bool CheckFolderParams()
@@ -144,7 +144,7 @@ namespace Finder
             return true;
         }
 
-        private void Build(Action callback = null)
+        private void BuildAndSearch()
         {
             if (!CheckFolderParams())
                 return;
@@ -182,8 +182,8 @@ namespace Finder
                 {
                     if(t.IsCanceled)
                         return;
-                    if (callback != null)
-                        this.BeginInvoke(callback);
+                    
+                    this.BeginInvoke(Search);
                 });
         }
 
@@ -194,7 +194,7 @@ namespace Finder
 
         private void OnBuildConfigChanged(object sender, TextChangedEventArgs e)
         {
-            Build();
+            BuildAndSearch();
         }
 
         private void SearchMethod_SelectionChanged_1(object sender, SelectionChangedEventArgs e)
@@ -209,7 +209,6 @@ namespace Finder
             _searchAlgorithm.CodePage = int.Parse(encodingStr);
 
             DeferUtil.StopAll();
-            Build(() => this.BeginInvoke(Search));
         }
 
         private void SearchDelay_Checked(object sender, RoutedEventArgs e)
@@ -226,12 +225,11 @@ namespace Finder
             _searchAlgorithm.CodePage = int.Parse(encodingStr);
 
             DeferUtil.StopAll();
-            Build(() => this.BeginInvoke(Search));
         }
 
         private void ButtonRefresh_OnClick(object sender, RoutedEventArgs e)
         {
-            Build(Search);
+            BuildAndSearch();
         }
 
         private void ButtonStop_OnClick(object sender, RoutedEventArgs e)
