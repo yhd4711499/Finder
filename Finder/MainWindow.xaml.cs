@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -86,11 +87,17 @@ namespace Finder
             UpdateStatus("正在搜索...");
 
             var keyword = Keyword.Text;
-            Func<string[]> searchAction = () => _searchAlgorithm.Search(keyword, new Dictionary<string, object> { { Trie.ConfigMatchWholeWord, false } }, _cuurentTaskToken.Token);
-            Action<string[]> update = (result) =>
+            var matchAll = MatchAll.IsChecked == true;
+            Func<List<SearchResult>> searchAction = () => _searchAlgorithm.Search(keyword,
+                new Dictionary<Configs, object>
+                {
+                    {Configs.MatchWholeWord, false},
+                    {Configs.MatchAll, matchAll}
+                }, _cuurentTaskToken.Token);
+            Action<List<SearchResult>> update = (result) =>
             {
-                Results.ItemsSource = result;
-                UpdateStatus("搜索完成，找到{0}项。", result.Length);
+                Results.ItemsSource = result.Select(_=> _searchAlgorithm.FileList[_.FileIndex].Substring(Folder.Text.Length));
+                UpdateStatus("搜索完成，找到{0}项。", result.Count);
             };
 
             if (_delay == -1)
@@ -242,13 +249,22 @@ namespace Finder
         [NotifyPropertyChangedInvocator]
         private void RaisePropertyChanged(string propertyName)
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
+            var handler = PropertyChanged;
             if (handler != null) handler(this, new PropertyChangedEventArgs(propertyName));
         }
 
         private void ResultItem_OnDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            CommonCommands.ShellExecuteCommand.Execute(((FrameworkElement)sender).DataContext.ToString());
+            CommonCommands.ShellExecuteCommand.Execute(Folder.Text + ((FrameworkElement)sender).DataContext);
+        }
+
+        private void MenuItemBrowse_OnClick(object sender, RoutedEventArgs e)
+        {
+            var menuItem = (MenuItem)sender;
+            var cmd = menuItem.Command;
+            if(cmd == null) return;
+            var absPath = (string)menuItem.DataContext;
+            cmd.Execute(Folder.Text + absPath);
         }
     }
 }

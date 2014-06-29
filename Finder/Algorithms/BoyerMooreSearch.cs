@@ -1,6 +1,7 @@
-﻿using System.Threading;
+﻿using System;
+using System.Diagnostics;
+using System.Threading;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Finder.Algorithms
 {
@@ -8,7 +9,7 @@ namespace Finder.Algorithms
     /// An implemention of Boyer-Moore algorithm.
     /// <para/>author : Ornithopter
     /// </summary>
-    class BoyerMooreSearch : SearchBase
+    public class BoyerMooreSearch : SearchBase
     {
         /// <summary>
         /// 
@@ -41,20 +42,39 @@ namespace Finder.Algorithms
             return matchIndexes.ToArray();
         }
 
+        public static bool Match(string source, string pattern)
+        {
+            var deltaMap = CreateDeltaMap(pattern);
+            return Match(source, deltaMap, pattern, new CancellationToken());
+        }
+
         private static bool Match(string source, int[] deltaMap, string pattern, CancellationToken token)
         {
             // step increasment.
-            int delta;
+            var delta = 0;
+
+            // for display.
+            var indent = pattern.Length;
+            Debug.WriteLine(source);
 
             // start searching.
             for (var i = pattern.Length - 1; i < source.Length; i += delta)
             {
+                // for display.
+                indent += delta;
+                Debug.Write(String.Format("{0}({1})", pattern.PadLeft(indent, '.'), delta));
+
                 token.ThrowIfCancellationRequested();
                 // find next match and update delta.
                 if (FindNext(source, pattern, i, deltaMap, token, out delta))
                 {
+                    Debug.Write("√");
                     return true;
                 }
+                if(delta <= 0)
+                    throw new Exception();
+                // new line.
+                Debug.WriteLine("");
             }
             return false;
         }
@@ -91,13 +111,17 @@ namespace Finder.Algorithms
 
             // found one dismatched char at (start - index), get delta from map.
             var c = source[start - index];
-            delta = /*c > 128 ? 0 : */deltaMap[c];
+            delta = deltaMap[c];
 
-            if (delta == 0)
+            if (delta <= index)
             {
                 // this means the source[start] char is the last char in pattern
                 // and only appears once. So delta should be the length of pattern.
                 delta = pattern.Length;
+            }
+            else
+            {
+                delta = delta - index;
             }
             return false;
         }
@@ -118,8 +142,7 @@ namespace Finder.Algorithms
             // the index nearest to the end.
             for (var i = 0; i < patternLength; i++)
             {
-                var index = pattern[i];
-                deltaMap[index] = patternLength - i - 1;
+                deltaMap[pattern[i]] = patternLength - i - 1;
             }
             return deltaMap;
         }
@@ -129,13 +152,32 @@ namespace Finder.Algorithms
             //throw new NotImplementedException();
         }
 
-        public override string[] Search(string keyword, Dictionary<string, object> config, CancellationToken token)
+        public override List<SearchResult> Search(string keyword, Dictionary<Configs, object> config, CancellationToken token)
         {
             var fileList = FileList;
 
             var deltaMap = CreateDeltaMap(keyword);
 
-            return fileList.Where(filePath => Match(ReadContent(filePath), deltaMap, keyword, token)).ToArray();
+            var matchAll = config.ContainsKey(Configs.MatchAll) && (bool)config[Configs.MatchAll];
+
+            var results = new List<SearchResult>();
+            for (var fileIndex = 0; fileIndex < fileList.Count; fileIndex++)
+            {
+                var filePath = fileList[fileIndex];
+                var lines = ReadContents(filePath);
+                var lineIndex = 0;
+                foreach (var line in lines)
+                {
+                    if (Match(line, deltaMap, keyword, token))
+                    {
+                        results.Add(new SearchResult(fileIndex, lineIndex));
+                        if(!matchAll)
+                            break;
+                    }
+                    lineIndex++;
+                }
+            }
+            return results;
         }
     }
 }

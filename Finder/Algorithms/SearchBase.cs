@@ -9,14 +9,15 @@ using Finder.Util;
 
 namespace Finder.Algorithms
 {
-    abstract class SearchBase : ISearchAlgorithm
+    public abstract class SearchBase : ISearchAlgorithm
     {
         public int CodePage { get; set; }
         public string Patterns { get; set; }
         public int Depth { get; set; }
         public string FolderPath { get; set; }
-        protected List<string> FileList { get; private set; }
-        protected List<string> GetFileList()
+        public List<string> FileList { get; private set; }
+
+        private List<string> GetFileList()
         {
             var patternDic = Patterns.Split('|').ToLookup(_ => _);
             var folderPath = FolderPath;
@@ -37,7 +38,13 @@ namespace Finder.Algorithms
             }, ct);
         }
 
-        public abstract string[] Search(string keyword, Dictionary<string, object> config, CancellationToken token);
+        public Task<List<SearchResult>> SearchAsync(string keyword, Dictionary<Configs, object> config,
+            CancellationToken token)
+        {
+            return Task.Factory.StartNew(() => Search(keyword, config, token), token);
+        }
+
+        public abstract List<SearchResult> Search(string keyword, Dictionary<Configs, object> config, CancellationToken token);
 
         static int utf8_probability(byte[] rawtext)
         {
@@ -96,7 +103,7 @@ namespace Finder.Algorithms
             return 0;
         }
 
-        protected string ReadContent(string filePath)
+        protected IEnumerable<string> ReadContents(string filePath)
         {
             Encoding encode;
             if (CodePage == 0)
@@ -111,17 +118,37 @@ namespace Finder.Algorithms
             {
                 encode = Encoding.GetEncoding(CodePage);
             }
-            string content;
+
             using (var reader = new StreamReader(filePath, encode))
             {
-                content = reader.ReadToEnd();
+                while (!reader.EndOfStream)
+                {
+                    yield return reader.ReadLine();
+                }
             }
-            return content;
         }
 
         public int IndexedCount
         {
             get { return FileList == null ? 0 : FileList.Count; }
         }
+    }
+
+    public class SearchResult
+    {
+        public SearchResult(int fileIndex, int line)
+        {
+            Line = line;
+            FileIndex = fileIndex;
+        }
+
+        public int FileIndex { get; private set; }
+        public int Line { get; private set; }
+    }
+
+    public enum Configs
+    {
+        MatchAll,
+        MatchWholeWord,
     }
 }

@@ -5,7 +5,7 @@ using Finder.Util;
 
 namespace Finder
 {
-    public class CommonCommands
+    public static class CommonCommands
     {
         private static RelayCommand<object> _shellExecuteCommand;
 

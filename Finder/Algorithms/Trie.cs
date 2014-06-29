@@ -49,7 +49,7 @@ namespace Finder.Algorithms
             foreach (var filePath in FileList)
             {
                 token.ThrowIfCancellationRequested();
-                Build(index++, ReadContent(filePath));
+                Build(index++, String.Concat(ReadContents(filePath)));
             }
         }
 
@@ -89,7 +89,7 @@ namespace Finder.Algorithms
             node.FileIndex[fileIndex] = true;
         }
 
-        private string[] Search(string keyword, bool matchWholeWord, CancellationToken token)
+        private List<SearchResult> Search(string keyword, bool matchWholeWord, CancellationToken token)
         {
             var node = _root;
             foreach (var t in keyword)
@@ -102,23 +102,21 @@ namespace Finder.Algorithms
                 Node next;
                 if (!node.Next.TryGetValue(c, out next))
                 {
-                    return new string[0];
+                    return new List<SearchResult>(0);
                 }
                 node = next;
             }
 
             if (matchWholeWord)
             {
-                return node.FileIndex.Where(_ => _.Value).Select(_ => FileList[_.Key]).ToArray();
+                return node.FileIndex.Where(_ => _.Value).Select(_ => new SearchResult(_.Key, 0)).ToList();
             }
-            return node.FileIndex.Select(_ => FileList[_.Key]).ToArray();
+            return node.FileIndex.Select(_ => new SearchResult(_.Key, 0)).ToList();
         }
 
-        public const string ConfigMatchWholeWord = "ConfigMatchWholeWord";
-
-        public override string[] Search(string keyword, Dictionary<string, object> config, CancellationToken token)
+        public override List<SearchResult> Search(string keyword, Dictionary<Configs, object> config, CancellationToken token)
         {
-            var matchWholeWord = (bool)config[ConfigMatchWholeWord];
+            var matchWholeWord = (bool)config[Configs.MatchWholeWord];
             return Search(keyword, matchWholeWord, token);
         }
     }

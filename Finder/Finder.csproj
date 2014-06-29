@@ -54,6 +54,7 @@
     <Compile Include="Algorithms\BoyerMooreSearch.cs" />
     <Compile Include="Algorithms\ISearchAlgorithm.cs" />
     <Compile Include="Algorithms\SearchBase.cs" />
+    <Compile Include="Annotations\Annotations.cs" />
     <Compile Include="Behaviors.cs" />
     <Compile Include="CommonCommands.cs" />
     <Compile Include="Converters\BooleanConverter.cs" />
@@ -63,7 +64,6 @@
     <Compile Include="Interop\ErrorHelper.cs" />
     <Compile Include="Interop\ShellComInterfaces.cs" />
     <Compile Include="Interop\ShellWrapperDefinitions.cs" />
-    <Compile Include="Properties\Annotations.cs" />
     <Compile Include="RelayCommand.cs" />
     <Compile Include="RelayCommandGeneric.cs" />
     <Compile Include="ShellUtil.cs" />
