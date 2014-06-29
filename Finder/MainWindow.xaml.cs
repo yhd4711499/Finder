@@ -47,8 +47,6 @@ namespace Finder
                 }
             }
         }
-        
-         
 
         public MainWindow()
         {
@@ -77,8 +75,6 @@ namespace Finder
 
         private void Search()
         {
-            GC.Collect();
-
             if (string.IsNullOrEmpty(Keyword.Text))
                 return;
             if (!CheckFolderParams())
@@ -88,12 +84,12 @@ namespace Finder
 
             var keyword = Keyword.Text;
             var matchAll = MatchAll.IsChecked == true;
-            Func<List<SearchResult>> searchAction = () => _searchAlgorithm.Search(keyword,
-                new Dictionary<Configs, object>
-                {
-                    {Configs.MatchWholeWord, false},
-                    {Configs.MatchAll, matchAll}
-                }, _cuurentTaskToken.Token);
+            var config = new Dictionary<Configs, object>
+            {
+                {Configs.MatchWholeWord, false},
+                {Configs.MatchAll, matchAll}
+            };
+
             Action<List<SearchResult>> update = (result) =>
             {
                 Results.ItemsSource = result.Select(_=> _searchAlgorithm.FileList[_.FileIndex].Substring(Folder.Text.Length));
@@ -102,7 +98,7 @@ namespace Finder
 
             if (_delay == -1)
             {
-                var result = searchAction();
+                var result = _searchAlgorithm.Search(keyword, config, _cuurentTaskToken.Token);
                 update(result);
             }
             else
@@ -110,7 +106,7 @@ namespace Finder
                 _cuurentTaskToken.Cancel();
                 _cuurentTaskToken = new CancellationTokenSource();
                 IsBusy = true;
-                Task.Factory.StartNew(searchAction, _cuurentTaskToken.Token)
+                _searchAlgorithm.SearchAsync(keyword, config, _cuurentTaskToken.Token)
                     .ContinueWith(t =>
                     {
                         if (t.IsCanceled)
@@ -207,6 +203,8 @@ namespace Finder
         private void SearchMethod_SelectionChanged_1(object sender, SelectionChangedEventArgs e)
         {
             _cuurentTaskToken.Cancel();
+            DeferUtil.StopAll();
+
             var shortName = (string)((FrameworkElement)SearchMethod.SelectedItem).Tag;
             var fullName = "Finder.Algorithms." + shortName;
             var s = Activator.CreateInstance(Type.GetType(fullName)) as ISearchAlgorithm;
@@ -215,7 +213,7 @@ namespace Finder
             var encodingStr = (string)((FrameworkElement)EncodingComboBox.SelectedItem).Tag;
             _searchAlgorithm.CodePage = int.Parse(encodingStr);
 
-            DeferUtil.StopAll();
+            BuildAndSearch();
         }
 
         private void SearchDelay_Checked(object sender, RoutedEventArgs e)
