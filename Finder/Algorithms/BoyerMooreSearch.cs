@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Collections.Generic;
 
@@ -11,6 +12,8 @@ namespace Finder.Algorithms
     /// </summary>
     public class BoyerMooreSearch : SearchBase
     {
+        const int AlphabetSize = 0xffff;
+
         /// <summary>
         /// 
         /// </summary>
@@ -111,7 +114,8 @@ namespace Finder.Algorithms
 
             // found one dismatched char at (start - index), get delta from map.
             var c = source[start - index];
-            delta = deltaMap[c];
+
+            delta = c >= AlphabetSize ? 1 : deltaMap[c];
 
             if (delta <= index)
             {
@@ -128,12 +132,12 @@ namespace Finder.Algorithms
 
         static int[] CreateDeltaMap(string pattern)
         {
-            const int alphabetSize = 0xffff;
+            
             var patternLength = pattern.Length;
-            var deltaMap = new int[alphabetSize];
+            var deltaMap = new int[AlphabetSize];
 
             // initialize the map.
-            for (var i = 0; i < alphabetSize; i++)
+            for (var i = 0; i < AlphabetSize; i++)
             {
                 deltaMap[i] = patternLength;
             }
@@ -142,7 +146,9 @@ namespace Finder.Algorithms
             // the index nearest to the end.
             for (var i = 0; i < patternLength; i++)
             {
-                deltaMap[pattern[i]] = patternLength - i - 1;
+                var index = pattern[i];
+                if(index >= AlphabetSize) throw new ArgumentException("搜索关键词包含非法的字符");
+                deltaMap[index] = patternLength - i - 1;
             }
             return deltaMap;
         }
@@ -166,7 +172,7 @@ namespace Finder.Algorithms
                 var filePath = fileList[fileIndex];
                 var lines = ReadContents(filePath);
                 var lineIndex = 0;
-                foreach (var line in lines)
+                foreach (var line in lines.TakeWhile(line => line != null))
                 {
                     if (Match(line, deltaMap, keyword, token))
                     {

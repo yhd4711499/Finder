@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Input;
 using Finder.Algorithms;
 using Finder.Annotations;
@@ -117,6 +116,11 @@ namespace Finder
                                 IsBusy = false;
                             }
                         }
+                        else if (t.IsFaulted)
+                        {
+                            this.BeginInvoke(() => UpdateStatus("发生了错误：{0}", t.Exception.InnerExceptions[0].Message));
+                            IsBusy = false;
+                        }
                         else
                         {
                             this.BeginInvoke(() => update(t.Result));
@@ -151,6 +155,8 @@ namespace Finder
         {
             if (!CheckFolderParams())
                 return;
+
+            DeferUtil.StopAll();
 
             var depth = 1;
             if (Recusive.IsChecked == true)
@@ -203,7 +209,6 @@ namespace Finder
         private void SearchMethod_SelectionChanged_1(object sender, SelectionChangedEventArgs e)
         {
             _cuurentTaskToken.Cancel();
-            DeferUtil.StopAll();
 
             var shortName = (string)((FrameworkElement)SearchMethod.SelectedItem).Tag;
             var fullName = "Finder.Algorithms." + shortName;
@@ -229,7 +234,7 @@ namespace Finder
             var encodingStr = (string)((FrameworkElement) EncodingComboBox.SelectedItem).Tag;
             _searchAlgorithm.CodePage = int.Parse(encodingStr);
 
-            DeferUtil.StopAll();
+            BuildAndSearch();
         }
 
         private void ButtonRefresh_OnClick(object sender, RoutedEventArgs e)

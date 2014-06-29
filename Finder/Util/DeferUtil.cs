@@ -23,7 +23,6 @@ namespace Finder.Util
             if (Timers.TryGetValue(o, out existedTimer))
             {
                 existedTimer.Stop();
-                existedTimer = null;
             }
             if (msInterval <= 0)
             {
@@ -31,8 +30,7 @@ namespace Finder.Util
             }
             else
             {
-                var timer = new DispatcherTimer();
-                timer.Interval = TimeSpan.FromMilliseconds(msInterval);
+                var timer = new DispatcherTimer {Interval = TimeSpan.FromMilliseconds(msInterval)};
                 var handler = new EventHandler((s, e) =>
                 {
                     ((DispatcherTimer)s).Stop();

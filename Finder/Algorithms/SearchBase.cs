@@ -106,26 +106,50 @@ namespace Finder.Algorithms
         protected IEnumerable<string> ReadContents(string filePath)
         {
             Encoding encode;
+
             if (CodePage == 0)
             {
-                using (var srtest = new StreamReader(filePath, Encoding.Default))
+                try
                 {
-                    var p = utf8_probability(Encoding.Default.GetBytes(srtest.ReadToEnd()));
-                    encode = p > 80 ? Encoding.GetEncoding(65001) : Encoding.Default;
+                    using (var srtest = new StreamReader(filePath, Encoding.Default))
+                    {
+                        var p = utf8_probability(Encoding.Default.GetBytes(srtest.ReadToEnd()));
+                        encode = p > 80 ? Encoding.GetEncoding(65001) : Encoding.Default;
+                    }
                 }
+                catch (Exception)
+                {
+                    encode = Encoding.Default;
+                }
+                
             }
             else
             {
                 encode = Encoding.GetEncoding(CodePage);
             }
-
-            using (var reader = new StreamReader(filePath, encode))
+            StreamReader reader = null;
+            try
             {
-                while (!reader.EndOfStream)
+                reader = new StreamReader(filePath, encode);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Can't read file {0}. cause:{1}", filePath, ex.Message);
+            }
+
+            if (reader == null)
+                yield return null;
+            else
+            {
+                using (reader)
                 {
-                    yield return reader.ReadLine();
+                    while (!reader.EndOfStream)
+                    {
+                        yield return reader.ReadLine();
+                    }
                 }
             }
+            
         }
 
         public int IndexedCount

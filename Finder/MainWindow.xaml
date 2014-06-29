@@ -2,11 +2,11 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:finder="clr-namespace:Finder"
-        xmlns:ed="http://schemas.microsoft.com/expression/2010/drawing" x:Class="Finder.MainWindow"
-        Title="内容搜索" Height="550" Width="700">
+        x:Class="Finder.MainWindow"
+        Title="内容搜索" MinHeight="550" MinWidth="770" Width="770">
 	<Grid Margin="8,8,8,8">
 		<Grid.ColumnDefinitions>
-			<ColumnDefinition Width="2*"/>
+			<ColumnDefinition Width="3*"/>
 			<ColumnDefinition Width="2*"/>
 		</Grid.ColumnDefinitions>
 		<Grid.RowDefinitions>
@@ -22,7 +22,7 @@
 						<ColumnDefinition Width="Auto"/>
 						<ColumnDefinition Width="Auto"/>
 					</Grid.ColumnDefinitions>
-					<TextBox x:Name="Folder" TextChanged="Folder_OnTextChanged"/>
+					<TextBox x:Name="Folder" TextChanged="Folder_OnTextChanged" TabIndex="0"/>
 					<Button Content="..." Grid.Column="1" Width="20" Height="20" Margin="8,0,0,0" Command="finder:CommonCommands.SelectFolderCommand" CommandParameter="{Binding ElementName=Folder}"/>
 					<Button Grid.Column="2" Width="20" Height="20" Margin="8,0,0,0" Click="ButtonRefresh_OnClick" FontFamily="Webdings"
                             ToolTip="重新索引">
@@ -40,19 +40,19 @@
 						<ComboBoxItem Content="UTF-7" Tag="65000"/>
 						<ComboBoxItem Content="UTF-8" Tag="65001"/>
 						<ComboBoxItem Content="Unicode(UTF-16)" Tag="1200"/>
-						<ComboBoxItem Content="自动" Tag="0"/>
+						<ComboBoxItem Content="自动(会降低性能)" Tag="0"/>
 					</ComboBox>
 
 					<TextBlock Text="后缀名（用|分格）" VerticalAlignment="Center"/>
-					<TextBox x:Name="Extensions" MinWidth="85" Text=".txt|.log|.cs" TextChanged="OnBuildConfigChanged"/>
+					<TextBox x:Name="Extensions" MinWidth="85" Text=".txt|.log|.cs" TextChanged="OnBuildConfigChanged" TabIndex="2"/>
 				</StackPanel>
 
 
 
-				<StackPanel Orientation="Horizontal">
-					<CheckBox x:Name="Recusive" Content="包含子目录" VerticalAlignment="Center" Unchecked="Recusive_OnCheckedChanged" Checked="Recusive_OnCheckedChanged"/>
+                <StackPanel Orientation="Horizontal" Height="20">
+					<CheckBox x:Name="Recusive" Content="包含子目录" VerticalAlignment="Center" Unchecked="Recusive_OnCheckedChanged" Checked="Recusive_OnCheckedChanged" TabIndex="3"/>
 					<TextBlock Text="深度" Margin="10,0,0,0" VerticalAlignment="Center" Visibility="{Binding IsChecked, Converter={StaticResource BooleanToVisibilityConverter}, ElementName=Recusive}"/>
-					<TextBox x:Name="Depth" Margin="5,0,0,0" Width="30" Visibility="{Binding IsChecked, Converter={StaticResource BooleanToVisibilityConverter}, ElementName=Recusive}" Text="2" TextChanged="OnBuildConfigChanged"/>
+					<TextBox x:Name="Depth" Margin="5,0,0,0" Width="30" Visibility="{Binding IsChecked, Converter={StaticResource BooleanToVisibilityConverter}, ElementName=Recusive}" Text="2" TextChanged="OnBuildConfigChanged" TabIndex="4"/>
 				</StackPanel>
 
 			</StackPanel>
@@ -60,7 +60,7 @@
 
 		<GroupBox Grid.Row="0" Grid.Column="1" Header="搜索">
 			<StackPanel Margin="8,8,8,8">
-				<TextBox x:Name="Keyword" TextChanged="Keyword_OnTextChanged" Height="20" Margin="0,0,0,8"/>
+				<TextBox x:Name="Keyword" TextChanged="Keyword_OnTextChanged" Height="20" Margin="0,0,0,8" TabIndex="1"/>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <TextBlock Text="搜索方式: " VerticalAlignment="Center"/>
                     <ComboBox x:Name="SearchMethod" SelectedIndex="0" SelectionChanged="SearchMethod_SelectionChanged_1">
@@ -101,7 +101,7 @@
 		</GroupBox>
 		<StatusBar Grid.Row="2" Grid.ColumnSpan="2" Grid.Column="0" Height="26">
 			<StatusBarItem>
-				<TextBlock x:Name="Status" Text="请选择要搜索的目录"/>
+				<TextBlock x:Name="Status" Text="请选择要搜索的目录" TextTrimming="CharacterEllipsis" Height="15" ToolTip="{Binding Text,RelativeSource={RelativeSource Self}}"/>
 			</StatusBarItem>
 			<StatusBarItem>
 				<Button Content="X" Click="ButtonStop_OnClick" Height="20" Width="20" Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"/>
