@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,7 +13,8 @@ namespace Finder.Algorithms
         int Depth { get; set; }
         string FolderPath { get; set; }
         List<string> FileList { get; }
-        //string[] Search(string keyword, Dictionary<string, object> config);
+        bool RequestBuild { get; }
+
         Task BuildAsync(CancellationToken ct);
         Task<List<SearchResult>> SearchAsync(string keyword, Dictionary<Configs, object> config, CancellationToken token);
         List<SearchResult> Search(string keyword, Dictionary<Configs, object> config, CancellationToken token);

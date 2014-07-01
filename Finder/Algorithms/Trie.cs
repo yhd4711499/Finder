@@ -41,6 +41,20 @@ namespace Finder.Algorithms
         private Node _root;
 
 
+        public override int CodePage
+        {
+            get
+            {
+                return base.CodePage;
+            }
+            set
+            {
+                if (base.CodePage == value) return;
+                base.CodePage = value;
+                RequestBuild = true;
+            }
+        }
+
         protected override void Build(CancellationToken token)
         {
             _root = new Node();

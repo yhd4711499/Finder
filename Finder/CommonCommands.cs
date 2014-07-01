@@ -28,17 +28,17 @@ namespace Finder
             }
         }
 
-        private static RelayCommand<TextBox> _selectFolderCommand;
+        private static RelayCommand<ComboBox> _selectFolderCommand;
 
         /// <summary>
         /// Gets the MyCommand.
         /// </summary>
-        public static RelayCommand<TextBox> SelectFolderCommand
+        public static RelayCommand<ComboBox> SelectFolderCommand
         {
             get
             {
                 return _selectFolderCommand
-                    ?? (_selectFolderCommand = new RelayCommand<TextBox>(
+                    ?? (_selectFolderCommand = new RelayCommand<ComboBox>(
                                           p =>
                                           {
                                               var d = new VistaFolderBrowserDialog();

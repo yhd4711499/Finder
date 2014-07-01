@@ -1,15 +1,17 @@
-﻿using System.ComponentModel;
-using System.Linq;
-using System.Threading;
-using System.Windows.Input;
-using Finder.Algorithms;
+﻿using Finder.Algorithms;
 using Finder.Annotations;
 using Finder.Util;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace Finder
 {
@@ -18,11 +20,19 @@ namespace Finder
     /// </summary>
     public sealed partial class MainWindow : Window, INotifyPropertyChanged
     {
+        #region Constants
+        private const long _configSettingDelay = 300;
+        #endregion
+
+        #region Fields
         private ISearchAlgorithm _searchAlgorithm;
         private long _delay;
         private CancellationTokenSource _cuurentTaskToken = new CancellationTokenSource();
+        private TextChangedEventHandler _keywordChangedEvent;
+        private TextBox _keywordTextBox;
+        #endregion
 
-
+        #region Properties
         /// <summary>
         /// IsBusy属性的名称
         /// </summary>
@@ -46,31 +56,25 @@ namespace Finder
                 }
             }
         }
+        #endregion
 
         public MainWindow()
         {
             Keyboard.AddKeyDownHandler(this, OnKeydown);
             InitializeComponent();
+            _keywordChangedEvent = new TextChangedEventHandler(Keyword_OnTextChanged);
+            Keyword.AddHandler(TextBox.TextChangedEvent, _keywordChangedEvent);
+
+            _keywordTextBox = (TextBox)typeof(ComboBox).InvokeMember(
+                    "EditableTextBoxSite",
+                    BindingFlags.GetProperty | BindingFlags.NonPublic | BindingFlags.Instance,
+                    null, Keyword, null);
+
             DataContext = this;
+            LoadSettings();
         }
 
-        private void OnKeydown(object sender, KeyEventArgs keyEventArgs)
-        {
-            if (keyEventArgs.Key == Key.Escape)
-            {
-                _cuurentTaskToken.Cancel();
-            }
-        }
-
-        private void Folder_OnTextChanged(object sender, TextChangedEventArgs e)
-        {
-            BuildAndSearch();
-        }
-
-        private void Keyword_OnTextChanged(object sender, TextChangedEventArgs e)
-        {
-            this.Relay(Search, _delay);
-        }
+        #region Methods
 
         private void Search()
         {
@@ -79,20 +83,27 @@ namespace Finder
             if (!CheckFolderParams())
                 return;
 
-            UpdateStatus("正在搜索...");
+            SaveSettings();
+            LoadSettings();
 
+            UpdateStatus("正在搜索...");
+            
             var keyword = Keyword.Text;
             var matchAll = MatchAll.IsChecked == true;
+
             var config = new Dictionary<Configs, object>
             {
                 {Configs.MatchWholeWord, false},
-                {Configs.MatchAll, matchAll}
+                {Configs.MatchAll, matchAll},
             };
-
+            var st = Stopwatch.StartNew();
             Action<List<SearchResult>> update = (result) =>
             {
-                Results.ItemsSource = result.Select(_=> _searchAlgorithm.FileList[_.FileIndex].Substring(Folder.Text.Length));
-                UpdateStatus("搜索完成，找到{0}项。", result.Count);
+                st.Stop();
+                Results.ItemsSource = result.Where(_=>_!=null)
+                    .Select(_=> _searchAlgorithm.FileList[_.FileIndex].Substring(Folder.Text.Length))
+                    .OrderBy(_=>_);
+                UpdateStatus("搜索完成，找到{0}项，用时{1} ms。", result.Count, st.ElapsedMilliseconds);
             };
 
             if (_delay == -1)
@@ -131,12 +142,7 @@ namespace Finder
             }
 
         }
-
-        private void Recusive_OnCheckedChanged(object sender, RoutedEventArgs e)
-        {
-            BuildAndSearch();
-        }
-
+        
         private bool CheckFolderParams()
         {
             if (string.IsNullOrEmpty(Folder.Text))
@@ -176,23 +182,23 @@ namespace Finder
             _searchAlgorithm.BuildAsync(_cuurentTaskToken.Token)
                 .ContinueWith(t =>
                 {
+                    IsBusy = false;
                     if (t.IsCanceled)
                     {
                         this.BeginInvoke(() => UpdateStatus("已取消索引。"));
                     }
+                    else if (t.IsFaulted)
+                    {
+                        this.BeginInvoke(() => UpdateStatus("索引发生错误：{0}。", t.Exception));
+                    }
                     else
                     {
-                        this.BeginInvoke(() => UpdateStatus("就绪，共索引{0}项", _searchAlgorithm.IndexedCount));
+                        this.BeginInvoke(() =>
+                        {
+                            UpdateStatus("就绪，共索引{0}项", _searchAlgorithm.IndexedCount);
+                            Search();
+                        });
                     }
-                    IsBusy = false;
-
-                })
-                .ContinueWith(t =>
-                {
-                    if(t.IsCanceled)
-                        return;
-                    
-                    this.BeginInvoke(Search);
                 });
         }
 
@@ -201,12 +207,104 @@ namespace Finder
             Status.Text = String.Format(msg, args);
         }
 
-        private void OnBuildConfigChanged(object sender, TextChangedEventArgs e)
+        private void SaveSettings()
+        {
+            MySettings.Instance.Add(Folder.Text, Keyword.Text, Extensions.Text);
+        }
+
+        private void LoadSettings()
+        {
+            Folder.ItemsSource = MySettings.Instance.HistoryFolders;
+            Extensions.ItemsSource = MySettings.Instance.HistoryExtensions;
+            Keyword.ItemsSource = MySettings.Instance.HistoryKeywords;
+        }
+
+        #endregion
+
+        #region Commands
+        private void ResultItem_OnDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            CommonCommands.ShellExecuteCommand.Execute(Folder.Text + ((FrameworkElement)sender).DataContext);
+        }
+
+        private void MenuItemBrowse_OnClick(object sender, RoutedEventArgs e)
+        {
+            var menuItem = (MenuItem)sender;
+            var cmd = menuItem.Command;
+            if (cmd == null) return;
+            var absPath = (string)menuItem.DataContext;
+            cmd.Execute(Folder.Text + absPath);
+        }
+
+        private void ButtonRefresh_OnClick(object sender, RoutedEventArgs e)
         {
             BuildAndSearch();
         }
 
-        private void SearchMethod_SelectionChanged_1(object sender, SelectionChangedEventArgs e)
+        private void ButtonStop_OnClick(object sender, RoutedEventArgs e)
+        {
+            _cuurentTaskToken.Cancel();
+        }
+
+        private void OnKeydown(object sender, KeyEventArgs keyEventArgs)
+        {
+            if (keyEventArgs.Key == Key.Escape)
+            {
+                _cuurentTaskToken.Cancel();
+            }
+        }
+        #endregion
+
+        #region Search Setting Changings
+
+        private void Keyword_OnTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (Unicode.IsChecked == true)
+            {
+                Keyword.RemoveHandler(TextBox.TextChangedEvent, _keywordChangedEvent);
+
+                Keyword.Text = Unicode.IsChecked == true ? Keyword.Text.ToUnicode() : Keyword.Text.ToGB2312();
+
+                _keywordTextBox.SelectionStart = Keyword.Text.Length;
+
+                Keyword.AddHandler(TextBox.TextChangedEvent, _keywordChangedEvent);
+            }
+            this.Relay(Search, _delay);
+        }
+
+        private void SearchDelay_Checked(object sender, RoutedEventArgs e)
+        {
+            var delayStr = (string)((FrameworkElement)sender).Tag;
+            _delay = long.Parse(delayStr);
+        }
+
+        private void Unicode_CheckChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Keyword.Text = Unicode.IsChecked == true ? Keyword.Text.ToUnicode() : Keyword.Text.ToGB2312();
+                Search();
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus("字符串转换错误：{0}", ex.Message);
+            }
+        }
+        #endregion
+
+        #region Build Setting Changings
+
+        private void OnBuildConfigChanged(object sender, TextChangedEventArgs e)
+        {
+            this.Relay(BuildAndSearch, _configSettingDelay);
+        }
+
+        private void Recusive_OnCheckedChanged(object sender, RoutedEventArgs e)
+        {
+            this.Relay(BuildAndSearch, _configSettingDelay);
+        }
+
+        private void SearchMethod_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             _cuurentTaskToken.Cancel();
 
@@ -221,32 +319,22 @@ namespace Finder
             BuildAndSearch();
         }
 
-        private void SearchDelay_Checked(object sender, RoutedEventArgs e)
-        {
-            var delayStr = (string)((FrameworkElement)sender).Tag;
-            _delay = long.Parse(delayStr);
-        }
-
         private void Encoding_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if(_searchAlgorithm == null)
+            if (_searchAlgorithm == null)
                 return;
-            var encodingStr = (string)((FrameworkElement) EncodingComboBox.SelectedItem).Tag;
+            var encodingStr = (string)((FrameworkElement)EncodingComboBox.SelectedItem).Tag;
             _searchAlgorithm.CodePage = int.Parse(encodingStr);
 
-            BuildAndSearch();
+            if (_searchAlgorithm.RequestBuild)
+                BuildAndSearch();
+            else
+                Search();
         }
 
-        private void ButtonRefresh_OnClick(object sender, RoutedEventArgs e)
-        {
-            BuildAndSearch();
-        }
+        #endregion
 
-        private void ButtonStop_OnClick(object sender, RoutedEventArgs e)
-        {
-            _cuurentTaskToken.Cancel();
-        }
-
+        #region INotifyPropertyChanged
         public event PropertyChangedEventHandler PropertyChanged;
 
         [NotifyPropertyChangedInvocator]
@@ -255,19 +343,6 @@ namespace Finder
             var handler = PropertyChanged;
             if (handler != null) handler(this, new PropertyChangedEventArgs(propertyName));
         }
-
-        private void ResultItem_OnDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            CommonCommands.ShellExecuteCommand.Execute(Folder.Text + ((FrameworkElement)sender).DataContext);
-        }
-
-        private void MenuItemBrowse_OnClick(object sender, RoutedEventArgs e)
-        {
-            var menuItem = (MenuItem)sender;
-            var cmd = menuItem.Command;
-            if(cmd == null) return;
-            var absPath = (string)menuItem.DataContext;
-            cmd.Execute(Folder.Text + absPath);
-        }
+        #endregion
     }
 }

@@ -6,7 +6,7 @@ namespace Finder.Util
 {
     static class DeferUtil
     {
-        private readonly static Dictionary<object, DispatcherTimer> Timers = new Dictionary<object, DispatcherTimer>();
+        private readonly static Dictionary<Action, DispatcherTimer> Timers = new Dictionary<Action, DispatcherTimer>();
 
         public static void StopAll()
         {
@@ -20,7 +20,7 @@ namespace Finder.Util
         public static void Relay(this object o, Action a, long msInterval)
         {
             DispatcherTimer existedTimer;
-            if (Timers.TryGetValue(o, out existedTimer))
+            if (Timers.TryGetValue(a, out existedTimer))
             {
                 existedTimer.Stop();
             }
@@ -34,12 +34,12 @@ namespace Finder.Util
                 var handler = new EventHandler((s, e) =>
                 {
                     ((DispatcherTimer)s).Stop();
-                    Timers.Remove(o);
+                    Timers.Remove(a);
                     a();
                 });
                 timer.Tick += handler;
 
-                Timers[o] = timer;
+                Timers[a] = timer;
                 timer.Start();
             }
 

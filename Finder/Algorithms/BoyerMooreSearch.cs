@@ -1,8 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
-using System.Collections.Generic;
 
 namespace Finder.Algorithms
 {
@@ -12,6 +13,7 @@ namespace Finder.Algorithms
     /// </summary>
     public class BoyerMooreSearch : SearchBase
     {
+        #region Algorithm
         const int AlphabetSize = 0xffff;
 
         /// <summary>
@@ -45,9 +47,8 @@ namespace Finder.Algorithms
             return matchIndexes.ToArray();
         }
 
-        public static bool Match(string source, string pattern)
+        public static bool Match(string source, string pattern, int[] deltaMap)
         {
-            var deltaMap = CreateDeltaMap(pattern);
             return Match(source, deltaMap, pattern, new CancellationToken());
         }
 
@@ -130,9 +131,8 @@ namespace Finder.Algorithms
             return false;
         }
 
-        static int[] CreateDeltaMap(string pattern)
+        public static int[] CreateDeltaMap(string pattern)
         {
-            
             var patternLength = pattern.Length;
             var deltaMap = new int[AlphabetSize];
 
@@ -152,10 +152,10 @@ namespace Finder.Algorithms
             }
             return deltaMap;
         }
+        #endregion
 
         protected override void Build(CancellationToken token)
         {
-            //throw new NotImplementedException();
         }
 
         public override List<SearchResult> Search(string keyword, Dictionary<Configs, object> config, CancellationToken token)
@@ -167,22 +167,23 @@ namespace Finder.Algorithms
             var matchAll = config.ContainsKey(Configs.MatchAll) && (bool)config[Configs.MatchAll];
 
             var results = new List<SearchResult>();
-            for (var fileIndex = 0; fileIndex < fileList.Count; fileIndex++)
-            {
-                var filePath = fileList[fileIndex];
-                var lines = ReadContents(filePath);
-                var lineIndex = 0;
-                foreach (var line in lines.TakeWhile(line => line != null))
+
+            fileList.AsParallel().ForAll(filePath =>
                 {
-                    if (Match(line, deltaMap, keyword, token))
+                    token.ThrowIfCancellationRequested();
+                    var lines = ReadContents(filePath);
+                    var lineIndex = 0;
+                    foreach (var line in lines.TakeWhile(line => line != null))
                     {
-                        results.Add(new SearchResult(fileIndex, lineIndex));
-                        if(!matchAll)
-                            break;
+                        if (Match(line, deltaMap, keyword, token))
+                        {
+                            results.Add(new SearchResult(fileList.IndexOf(filePath), lineIndex));
+                            if (!matchAll)
+                                break;
+                        }
+                        lineIndex++;
                     }
-                    lineIndex++;
-                }
-            }
+                });
             return results;
         }
     }

@@ -6,16 +6,21 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Finder.Util;
+using System.ComponentModel;
 
 namespace Finder.Algorithms
 {
     public abstract class SearchBase : ISearchAlgorithm
     {
-        public int CodePage { get; set; }
+        public bool RequestBuild { get; protected set; }
+        public virtual int CodePage { get; set; }
         public string Patterns { get; set; }
         public int Depth { get; set; }
         public string FolderPath { get; set; }
         public List<string> FileList { get; private set; }
+
+        public event Action OnBuildStarted, OnSearchStarted;
+        public event Action<RunWorkerCompletedEventArgs> OnBuildStopped, OnSearchStopped;
 
         private List<string> GetFileList()
         {
@@ -32,16 +37,32 @@ namespace Finder.Algorithms
         {
             return Task.Factory.StartNew(() =>
             {
+                if (OnBuildStarted != null)
+                    OnBuildStarted();
                 GC.Collect();
                 FileList = GetFileList();
                 Build(ct);
-            }, ct);
+            }, ct).ContinueWith(t=>{
+                RaiseBuildStopped(t.Exception, t.IsCanceled);
+            });
         }
 
         public Task<List<SearchResult>> SearchAsync(string keyword, Dictionary<Configs, object> config,
             CancellationToken token)
         {
-            return Task.Factory.StartNew(() => Search(keyword, config, token), token);
+            return Task.Factory.StartNew(() =>
+            {
+                try
+                {
+                    return Search(keyword, config, token);
+                }
+                catch (AggregateException ex)
+                {
+                    if(ex.InnerException is OperationCanceledException)
+                        throw ex.InnerException;
+                    throw ex;
+                }
+            }, token);
         }
 
         public abstract List<SearchResult> Search(string keyword, Dictionary<Configs, object> config, CancellationToken token);
@@ -155,6 +176,22 @@ namespace Finder.Algorithms
         public int IndexedCount
         {
             get { return FileList == null ? 0 : FileList.Count; }
+        }
+
+        protected void RaiseBuildStopped(Exception error, bool cancelled)
+        {
+            if (OnBuildStopped != null)
+            {
+                OnBuildStopped(new RunWorkerCompletedEventArgs(null, error, cancelled));
+            }
+        }
+
+        protected void RaiseSearchStopped(object results ,Exception error, bool cancelled)
+        {
+            if (OnSearchStopped != null)
+            {
+                OnSearchStopped(new RunWorkerCompletedEventArgs(results, error, cancelled));
+            }
         }
     }
 

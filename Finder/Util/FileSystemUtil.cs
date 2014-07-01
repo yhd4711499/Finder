@@ -23,9 +23,6 @@ namespace Finder.Util
             {
                 
             }
-            
-
-            
         } 
     }
 }
